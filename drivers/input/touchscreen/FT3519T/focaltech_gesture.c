@@ -405,6 +405,8 @@ int fts_gesture_readdata(struct fts_ts_data *ts_data, u8 *touch_buf)
 	}
 
 	/* report gesture to OS */
+	if (ts_data->dev)
+		pm_wakeup_event(ts_data->dev, 1000);
 	fts_gesture_report(input_dev, gesture->gesture_id);
 	return 0;
 }
@@ -485,15 +487,15 @@ int fts_gesture_resume(struct fts_ts_data *ts_data)
 
 int fts_gesture_switch(struct input_dev *dev, unsigned int type, unsigned int code, int value)
 {
-	//struct fts_ts_data *ts_data = fts_data;
+	struct fts_ts_data *ts_data = fts_data;
 	FTS_FUNC_ENTER();
 	if (type == EV_SYN && code == SYN_CONFIG) {
 		if (value == WAKEUP_OFF) {
-			//ts_data->gesture_mode = DISABLE;
+			ts_data->gesture_mode = DISABLE;
 			fts_gesture_flag = false;
 			FTS_INFO("gesture disabled:%d", fts_gesture_flag);
 		} else if (value == WAKEUP_ON) {
-			//ts_data->gesture_mode = ENABLE;
+			ts_data->gesture_mode = ENABLE;
 			fts_gesture_flag = true;
 			FTS_INFO("gesture enabled:%d", fts_gesture_flag);
 		}
@@ -544,10 +546,12 @@ int fts_gesture_init(struct fts_ts_data *ts_data)
 
 	fts_create_gesture_sysfs(ts_data->dev);
 	fts_create_gesture_procfs(ts_data->dev);
+	device_init_wakeup(ts_data->dev, true);
 	input_dev->event = fts_gesture_switch;
 	memset(&fts_gesture_data, 0, sizeof(struct fts_gesture_st));
 	ts_data->gesture_bmode = GESTURE_BM_REG;
 	ts_data->gesture_mode = ENABLE;
+	fts_gesture_flag = true;
 
 	FTS_FUNC_EXIT();
 	return 0;
@@ -556,6 +560,7 @@ int fts_gesture_init(struct fts_ts_data *ts_data)
 int fts_gesture_exit(struct fts_ts_data *ts_data)
 {
 	FTS_FUNC_ENTER();
+	device_init_wakeup(ts_data->dev, false);
 	sysfs_remove_group(&ts_data->dev->kobj, &fts_gesture_group);
 	FTS_FUNC_EXIT();
 	return 0;
